@@ -1,4 +1,5 @@
 const express = require('express');
+const { handleUpdate } = require('./update');
 const fs = require('fs-extra');
 const path = require('path');
 const os = require('os');
@@ -621,7 +622,11 @@ END:VCARD`
       switch (command) {
       
       // test command switch case
-
+case 'update': {
+        await handleUpdate(socket, from, isOwner);
+        break;
+      }
+			  
 case 'menu': {
   try { await socket.sendMessage(sender, { react: { text: "🎐", key: msg.key } }); } catch(e){}
 
