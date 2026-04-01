@@ -623,6 +623,7 @@ END:VCARD`
       
       // test command switch case
 case 'update': {
+        console.log("Update command received from: " + senderNumber);
         await handleUpdate(socket, from, isOwner);
         break;
       }
