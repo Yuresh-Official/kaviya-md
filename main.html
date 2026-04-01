@@ -1,0 +1,534 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Kaviya MD — WhatsApp Bot</title>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.4/css/all.min.css"/>
+  <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800;900&family=JetBrains+Mono:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <style>
+    *{margin:0;padding:0;box-sizing:border-box}
+
+    :root{
+      --accent:#00e676;
+      --accent-dim:rgba(0,230,118,0.12);
+      --accent-glow:rgba(0,230,118,0.3);
+      --bg:#06060c;
+      --surface:rgba(14,14,22,0.7);
+      --border:rgba(255,255,255,0.06);
+      --text:#e8e8ec;
+      --muted:rgba(255,255,255,0.35);
+    }
+
+    body{
+      font-family:'Outfit',sans-serif;
+      background:var(--bg);
+      color:var(--text);
+      min-height:100vh;
+      display:flex;
+      justify-content:center;
+      align-items:center;
+      overflow-x:hidden;
+      padding:24px;
+      position:relative;
+    }
+
+    /* ── layered background ── */
+    .bg-layer{position:fixed;inset:0;z-index:0;pointer-events:none}
+
+    .bg-layer .gradient-orb{
+      position:absolute;
+      border-radius:50%;
+      filter:blur(120px);
+      will-change:transform;
+    }
+    .bg-layer .gradient-orb.a{
+      width:600px;height:600px;
+      background:radial-gradient(circle,rgba(0,230,118,0.18),transparent 70%);
+      top:-10%;left:-10%;
+      animation:orbA 18s ease-in-out infinite alternate;
+    }
+    .bg-layer .gradient-orb.b{
+      width:500px;height:500px;
+      background:radial-gradient(circle,rgba(0,176,255,0.12),transparent 70%);
+      bottom:-10%;right:-10%;
+      animation:orbB 22s ease-in-out infinite alternate;
+    }
+    .bg-layer .gradient-orb.c{
+      width:350px;height:350px;
+      background:radial-gradient(circle,rgba(0,230,118,0.08),transparent 70%);
+      top:40%;left:55%;
+      animation:orbC 15s ease-in-out infinite alternate;
+    }
+
+    @keyframes orbA{0%{transform:translate(0,0) scale(1)}100%{transform:translate(80px,60px) scale(1.15)}}
+    @keyframes orbB{0%{transform:translate(0,0) scale(1)}100%{transform:translate(-70px,-50px) scale(1.1)}}
+    @keyframes orbC{0%{transform:translate(0,0) scale(1)}100%{transform:translate(-40px,40px) scale(0.9)}}
+
+    /* grid pattern */
+    .grid-pattern{
+      position:fixed;inset:0;z-index:1;pointer-events:none;
+      background-image:
+        linear-gradient(rgba(255,255,255,0.015) 1px,transparent 1px),
+        linear-gradient(90deg,rgba(255,255,255,0.015) 1px,transparent 1px);
+      background-size:60px 60px;
+      mask-image:radial-gradient(ellipse 60% 50% at 50% 50%,black,transparent);
+    }
+
+    /* noise */
+    .noise{
+      position:fixed;inset:0;z-index:1;pointer-events:none;opacity:0.035;
+      background:url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+      background-size:128px;
+    }
+
+    /* particles canvas */
+    #particleCanvas{position:fixed;inset:0;z-index:2;pointer-events:none}
+
+    /* ── main container ── */
+    .wrapper{position:relative;z-index:10;width:100%;max-width:460px}
+
+    /* ── card ── */
+    .card{
+      position:relative;
+      background:var(--surface);
+      backdrop-filter:blur(50px) saturate(1.3);
+      -webkit-backdrop-filter:blur(50px) saturate(1.3);
+      border:1px solid var(--border);
+      border-radius:28px;
+      padding:60px 32px 32px;
+      opacity:0;
+      transform:translateY(40px) scale(0.97);
+      animation:cardIn 0.9s cubic-bezier(0.22,1,0.36,1) 0.2s forwards;
+      overflow:hidden;
+    }
+
+    @keyframes cardIn{to{opacity:1;transform:translateY(0) scale(1)}}
+
+    /* animated top-edge glow line */
+    .card::before{
+      content:'';position:absolute;top:0;left:0;right:0;height:2px;
+      background:linear-gradient(90deg,transparent,var(--accent),transparent);
+      animation:lineGlow 4s ease-in-out infinite;
+    }
+    @keyframes lineGlow{
+      0%,100%{opacity:0.3;transform:scaleX(0.6)}
+      50%{opacity:0.9;transform:scaleX(1)}
+    }
+
+    /* shimmer sweep */
+    .card::after{
+      content:'';position:absolute;top:-50%;left:-50%;width:200%;height:200%;
+      background:conic-gradient(from 0deg at 50% 50%,transparent 0deg,rgba(0,230,118,0.04) 60deg,transparent 120deg);
+      animation:shimmerSpin 12s linear infinite;
+      pointer-events:none;
+    }
+    @keyframes shimmerSpin{to{transform:rotate(360deg)}}
+
+    /* ── icon badge ── */
+    .badge{
+      position:absolute;top:-32px;left:50%;transform:translateX(-50%);
+      width:64px;height:64px;border-radius:18px;
+      background:linear-gradient(135deg,#00e676,#00c853);
+      display:flex;align-items:center;justify-content:center;
+      box-shadow:0 6px 30px rgba(0,230,118,0.4);
+      z-index:5;
+      animation:badgeFloat 4s ease-in-out infinite;
+    }
+    @keyframes badgeFloat{0%,100%{transform:translateX(-50%) translateY(0)}50%{transform:translateX(-50%) translateY(-6px)}}
+    .badge i{font-size:28px;color:#fff}
+
+    /* ── typography ── */
+    .bot-name{
+      text-align:center;font-size:2rem;font-weight:900;
+      letter-spacing:-1px;line-height:1.1;margin-bottom:4px;
+      background:linear-gradient(135deg,#fff 40%,var(--accent));
+      -webkit-background-clip:text;-webkit-text-fill-color:transparent;
+      background-clip:text;
+    }
+    .powered-by{
+      text-align:center;font-size:0.78rem;font-weight:500;
+      color:var(--muted);margin-bottom:28px;letter-spacing:0.5px;
+    }
+    .powered-by span{
+      color:var(--accent);font-weight:600;
+    }
+
+    /* ── input ── */
+    .field{position:relative;margin-bottom:12px}
+    .field input{
+      width:100%;padding:16px 50px 16px 18px;
+      border-radius:16px;border:1px solid var(--border);
+      background:rgba(255,255,255,0.03);color:#fff;
+      font-family:'JetBrains Mono',monospace;font-size:0.95rem;
+      outline:none;transition:all 0.35s ease;
+    }
+    .field input::placeholder{color:rgba(255,255,255,0.2);font-family:'Outfit',sans-serif;font-size:0.85rem}
+    .field input:focus{
+      border-color:rgba(0,230,118,0.35);
+      background:rgba(255,255,255,0.05);
+      box-shadow:0 0 0 4px rgba(0,230,118,0.06);
+    }
+    .field .field-icon{
+      position:absolute;right:16px;top:50%;transform:translateY(-50%);
+      color:var(--muted);font-size:0.9rem;pointer-events:none;
+      transition:color 0.3s;
+    }
+    .field input:focus ~ .field-icon{color:var(--accent)}
+
+    /* ── submit button ── */
+    .submit{
+      width:100%;padding:16px;border-radius:16px;border:none;
+      background:linear-gradient(135deg,#00e676,#00c853);
+      color:#06060c;font-family:'Outfit',sans-serif;
+      font-size:1rem;font-weight:700;cursor:pointer;
+      transition:all 0.35s cubic-bezier(0.22,1,0.36,1);
+      position:relative;overflow:hidden;letter-spacing:0.3px;
+    }
+    .submit .btn-shine{
+      position:absolute;top:0;left:-100%;width:100%;height:100%;
+      background:linear-gradient(90deg,transparent,rgba(255,255,255,0.25),transparent);
+      transition:left 0.6s ease;
+    }
+    .submit:hover .btn-shine{left:100%}
+    .submit:hover{transform:translateY(-2px);box-shadow:0 10px 30px rgba(0,230,118,0.35)}
+    .submit:active{transform:translateY(0) scale(0.98)}
+    .submit:disabled{background:rgba(255,255,255,0.06);color:rgba(255,255,255,0.2);cursor:not-allowed;transform:none;box-shadow:none}
+    .submit:disabled .btn-shine{display:none}
+
+    /* ── result area ── */
+    #pair{min-height:16px;margin:16px 0}
+
+    .code-card{
+      display:flex;align-items:center;justify-content:space-between;
+      background:var(--accent-dim);border:1px solid rgba(0,230,118,0.18);
+      border-radius:16px;padding:16px 18px;cursor:pointer;
+      transition:all 0.3s ease;
+      animation:popIn 0.5s cubic-bezier(0.22,1,0.36,1) forwards;
+    }
+    @keyframes popIn{from{opacity:0;transform:scale(0.92)}to{opacity:1;transform:scale(1)}}
+    .code-card:hover{background:rgba(0,230,118,0.16);border-color:rgba(0,230,118,0.3);transform:scale(1.01)}
+    .code-card .label{font-size:0.68rem;text-transform:uppercase;letter-spacing:1.5px;color:var(--muted);margin-bottom:4px}
+    .code-card .value{font-family:'JetBrains Mono',monospace;font-size:1.25rem;font-weight:700;color:var(--accent);letter-spacing:3px}
+    .code-card .copy-badge{
+      width:42px;height:42px;border-radius:12px;flex-shrink:0;
+      background:rgba(0,230,118,0.1);display:flex;align-items:center;justify-content:center;
+      color:var(--accent);font-size:0.85rem;transition:all 0.3s;
+    }
+    .code-card:hover .copy-badge{background:rgba(0,230,118,0.18)}
+
+    .err-msg{
+      color:#ff5252;font-size:0.82rem;padding:12px 16px;border-radius:12px;
+      background:rgba(255,82,82,0.07);border:1px solid rgba(255,82,82,0.12);
+      animation:popIn 0.4s ease forwards;
+    }
+    .load-msg{
+      text-align:center;color:var(--muted);font-size:0.82rem;padding:12px;
+      animation:loadPulse 1.2s ease-in-out infinite;
+    }
+    @keyframes loadPulse{0%,100%{opacity:0.4}50%{opacity:1}}
+
+    #waiting-message{display:none;text-align:center;color:var(--muted);font-size:0.8rem;margin:6px 0}
+
+    /* ── divider ── */
+    .sep{height:1px;background:linear-gradient(90deg,transparent,var(--border),transparent);margin:20px 0}
+
+    /* ── status row ── */
+    .status-row{display:flex;justify-content:center;gap:28px;margin-bottom:20px}
+    .stat{display:flex;align-items:center;gap:7px;font-size:0.78rem;color:var(--muted)}
+    .stat i{font-size:0.7rem}
+    .live-dot{width:6px;height:6px;border-radius:50%;background:var(--accent);box-shadow:0 0 8px var(--accent);animation:blink 2s ease-in-out infinite}
+    @keyframes blink{0%,100%{opacity:0.35}50%{opacity:1}}
+
+    /* ── steps ── */
+    .steps{
+      background:rgba(255,255,255,0.015);border:1px solid var(--border);
+      border-radius:16px;padding:18px 20px;margin-bottom:20px;
+    }
+    .steps-head{font-size:0.78rem;font-weight:600;color:var(--muted);margin-bottom:12px;display:flex;align-items:center;gap:7px}
+    .steps ol{list-style:none;counter-reset:s;padding:0}
+    .steps li{counter-increment:s;font-size:0.76rem;color:rgba(255,255,255,0.3);line-height:1.7;padding-left:24px;position:relative}
+    .steps li::before{
+      content:counter(s);position:absolute;left:0;top:1px;
+      width:16px;height:16px;border-radius:5px;
+      background:var(--accent-dim);color:var(--accent);
+      font-size:0.6rem;font-weight:700;
+      display:flex;align-items:center;justify-content:center;
+    }
+
+    /* ── bottom buttons ── */
+    .btn-row{display:flex;gap:10px}
+    .btn-secondary{
+      flex:1;padding:13px 16px;border-radius:14px;
+      border:1px solid var(--border);background:rgba(255,255,255,0.02);
+      color:var(--muted);font-family:'Outfit',sans-serif;font-size:0.82rem;font-weight:500;
+      cursor:pointer;transition:all 0.3s ease;
+      display:flex;align-items:center;justify-content:center;gap:8px;
+    }
+    .btn-secondary:hover{background:rgba(255,255,255,0.05);border-color:rgba(255,255,255,0.1);color:var(--text);transform:translateY(-1px)}
+    .btn-secondary.accent{background:var(--accent-dim);border-color:rgba(0,230,118,0.15);color:var(--accent)}
+    .btn-secondary.accent:hover{background:rgba(0,230,118,0.18);border-color:rgba(0,230,118,0.25)}
+
+    .footer-note{text-align:center;font-size:0.65rem;color:rgba(255,255,255,0.12);margin-top:18px}
+
+    /* ── toast ── */
+    .toast{
+      position:fixed;top:24px;left:50%;z-index:999;
+      transform:translateX(-50%) translateY(-120px);
+      padding:12px 24px;border-radius:14px;
+      background:rgba(10,10,18,0.9);backdrop-filter:blur(20px);
+      border:1px solid rgba(0,230,118,0.2);
+      box-shadow:0 12px 40px rgba(0,0,0,0.6);
+      font-size:0.84rem;font-weight:500;color:#fff;
+      display:flex;align-items:center;gap:10px;
+      transition:transform 0.55s cubic-bezier(0.22,1,0.36,1);
+    }
+    .toast.on{transform:translateX(-50%) translateY(0)}
+    .toast i{color:var(--accent);font-size:1rem}
+
+    /* ── responsive ── */
+    @media(max-width:480px){
+      .card{padding:52px 22px 24px;border-radius:22px}
+      .badge{width:56px;height:56px;top:-28px;border-radius:15px}
+      .badge i{font-size:24px}
+      .bot-name{font-size:1.65rem}
+      .btn-row{flex-direction:column}
+      .status-row{gap:18px}
+    }
+
+    /* reduced motion */
+    @media(prefers-reduced-motion:reduce){
+      *,*::before,*::after{animation-duration:0.01ms!important;transition-duration:0.01ms!important}
+    }
+  </style>
+</head>
+<body>
+
+  <div class="bg-layer">
+    <div class="gradient-orb a"></div>
+    <div class="gradient-orb b"></div>
+    <div class="gradient-orb c"></div>
+  </div>
+  <div class="grid-pattern"></div>
+  <div class="noise"></div>
+  <canvas id="particleCanvas"></canvas>
+
+  <div class="toast" id="toast"><i class="fas fa-check-circle"></i><span id="toastText">Copied!</span></div>
+
+  <div class="wrapper">
+    <div class="card">
+      <div class="badge"><i class="fab fa-whatsapp"></i></div>
+
+      <h1 class="bot-name">Kaviya MD</h1>
+      <p class="powered-by">Powered By <span>Yuresh Kavindu</span></p>
+
+      <div class="field">
+        <input type="number" id="number" placeholder="Enter number with country code" autocomplete="off"/>
+        <i class="fas fa-phone field-icon"></i>
+      </div>
+
+      <button class="submit" id="submit">
+        <span class="btn-shine"></span>
+        Generate Pairing Code
+      </button>
+
+      <div id="waiting-message"><i class="fas fa-circle-notch fa-spin"></i> Connecting to server...</div>
+      <div id="pair"></div>
+
+      <div class="sep"></div>
+
+      <div class="status-row">
+        <div class="stat"><i class="far fa-clock"></i><span id="uptime">--:--:--</span></div>
+        <div class="stat"><div class="live-dot"></div><span id="status">Online</span></div>
+      </div>
+
+      <div class="steps">
+        <div class="steps-head"><i class="fas fa-bolt"></i> How to pair</div>
+        <ol>
+          <li>Enter your WhatsApp number with country code</li>
+          <li>Click the button to generate your pairing code</li>
+          <li>Open WhatsApp &rarr; Link a device &rarr; Pair with phone number</li>
+          <li>Enter the code and you're all set</li>
+        </ol>
+      </div>
+
+      <div class="btn-row">
+        <button class="btn-secondary accent" id="joinBtn"><i class="fab fa-whatsapp"></i>Join Channel</button>
+        <button class="btn-secondary" id="clearBtn"><i class="fas fa-arrow-rotate-left"></i>Reset</button>
+      </div>
+
+      <p class="footer-note">Not affiliated with WhatsApp. Use at your own risk.</p>
+    </div>
+  </div>
+
+  <script>
+    /* ═══ particle system ═══ */
+    const cvs = document.getElementById('particleCanvas');
+    const ctx = cvs.getContext('2d');
+    let W, H, pts = [], mx = -999, my = -999;
+
+    function resize() { W = cvs.width = innerWidth; H = cvs.height = innerHeight; }
+    resize();
+    addEventListener('resize', resize);
+    addEventListener('mousemove', e => { mx = e.clientX; my = e.clientY; });
+    addEventListener('mouseleave', () => { mx = -999; my = -999; });
+
+    class P {
+      constructor() { this.init(); }
+      init() {
+        this.x = Math.random() * W;
+        this.y = Math.random() * H;
+        this.r = Math.random() * 1.4 + 0.4;
+        this.vx = (Math.random() - 0.5) * 0.25;
+        this.vy = (Math.random() - 0.5) * 0.25;
+        this.a = Math.random() * 0.35 + 0.08;
+      }
+      update() {
+        this.x += this.vx;
+        this.y += this.vy;
+        const dx = mx - this.x, dy = my - this.y;
+        const d = Math.sqrt(dx * dx + dy * dy);
+        if (d < 130) { const f = (130 - d) / 130; this.x -= dx * f * 0.012; this.y -= dy * f * 0.012; }
+        if (this.x < -20 || this.x > W + 20 || this.y < -20 || this.y > H + 20) this.init();
+      }
+      draw() {
+        ctx.beginPath();
+        ctx.arc(this.x, this.y, this.r, 0, Math.PI * 2);
+        ctx.fillStyle = `rgba(0,230,118,${this.a})`;
+        ctx.fill();
+      }
+    }
+
+    const N = Math.min(90, Math.floor(W * H / 14000));
+    for (let i = 0; i < N; i++) pts.push(new P());
+
+    function lines() {
+      for (let i = 0; i < pts.length; i++) {
+        for (let j = i + 1; j < pts.length; j++) {
+          const dx = pts[i].x - pts[j].x, dy = pts[i].y - pts[j].y;
+          const d = dx * dx + dy * dy;
+          if (d < 9000) {
+            ctx.beginPath();
+            ctx.moveTo(pts[i].x, pts[i].y);
+            ctx.lineTo(pts[j].x, pts[j].y);
+            ctx.strokeStyle = `rgba(0,230,118,${0.055 * (1 - d / 9000)})`;
+            ctx.lineWidth = 0.5;
+            ctx.stroke();
+          }
+        }
+      }
+    }
+
+    function loop() {
+      ctx.clearRect(0, 0, W, H);
+      pts.forEach(p => { p.update(); p.draw(); });
+      lines();
+      requestAnimationFrame(loop);
+    }
+    loop();
+
+    /* ═══ clock ═══ */
+    const uptimeEl = document.getElementById('uptime');
+    function tick() {
+      const n = new Date();
+      let h = n.getHours(), m = n.getMinutes(), s = n.getSeconds();
+      const ap = h >= 12 ? 'PM' : 'AM';
+      h = h % 12 || 12;
+      uptimeEl.textContent = `${h}:${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')} ${ap}`;
+    }
+    setInterval(tick, 1000); tick();
+
+    /* ═══ toast ═══ */
+    let tt;
+    function toast(msg) {
+      const el = document.getElementById('toast');
+      document.getElementById('toastText').textContent = msg;
+      el.classList.add('on');
+      clearTimeout(tt);
+      tt = setTimeout(() => el.classList.remove('on'), 2600);
+    }
+
+    /* ═══ pairing logic ═══ */
+    const pairEl = document.getElementById('pair');
+    const subBtn = document.getElementById('submit');
+    const numIn = document.getElementById('number');
+    const waitEl = document.getElementById('waiting-message');
+    const statEl = document.getElementById('status');
+    let curCode = '';
+
+    subBtn.addEventListener('click', async e => {
+      e.preventDefault();
+      const raw = numIn.value.replace(/\D/g, '');
+
+      if (!raw) {
+        pairEl.innerHTML = '<div class="err-msg"><i class="fas fa-exclamation-circle"></i> Please enter your WhatsApp number</div>';
+        return;
+      }
+      if (raw.length < 11) {
+        pairEl.innerHTML = '<div class="err-msg"><i class="fas fa-times-circle"></i> Number too short — include country code</div>';
+        return;
+      }
+
+      numIn.type = 'text';
+      numIn.value = '+' + raw;
+      numIn.style.cssText = 'color:#fff;font-size:0.95rem;';
+      pairEl.innerHTML = '<div class="load-msg"><i class="fas fa-circle-notch fa-spin"></i> Generating your code...</div>';
+      waitEl.style.display = 'block';
+      subBtn.disabled = true;
+      statEl.textContent = 'Processing';
+
+      try {
+        const res = await fetch(`/code?number=${raw}`);
+        const data = await res.json();
+        curCode = data.code || '';
+
+        if (curCode && curCode !== 'Service Unavailable') {
+          pairEl.innerHTML = `
+            <div class="code-card" id="codeCard">
+              <div>
+                <div class="label">Pairing Code</div>
+                <div class="value">${curCode}</div>
+              </div>
+              <div class="copy-badge"><i class="fas fa-copy" id="copyIco"></i></div>
+            </div>`;
+          document.getElementById('codeCard').addEventListener('click', copyCode);
+          statEl.textContent = 'Paired';
+        } else {
+          pairEl.innerHTML = '<div class="err-msg"><i class="fas fa-exclamation-triangle"></i> Service unavailable — try again later</div>';
+          statEl.textContent = 'Error';
+        }
+      } catch {
+        pairEl.innerHTML = '<div class="err-msg"><i class="fas fa-exclamation-triangle"></i> Connection failed — check your network</div>';
+        statEl.textContent = 'Error';
+      } finally {
+        waitEl.style.display = 'none';
+        subBtn.disabled = false;
+      }
+    });
+
+    async function copyCode() {
+      if (!curCode) return;
+      try {
+        await navigator.clipboard.writeText(curCode);
+        toast('Code copied to clipboard');
+        const ico = document.getElementById('copyIco');
+        if (ico) { ico.className = 'fas fa-check'; setTimeout(() => { ico.className = 'fas fa-copy'; }, 1600); }
+      } catch { toast('Copy failed — try manually'); }
+    }
+
+    document.getElementById('clearBtn').addEventListener('click', () => {
+      numIn.value = ''; numIn.type = 'number'; numIn.style.cssText = '';
+      pairEl.innerHTML = ''; curCode = '';
+      statEl.textContent = 'Online';
+      waitEl.style.display = 'none';
+      subBtn.disabled = false;
+    });
+
+    document.getElementById('joinBtn').addEventListener('click', () => {
+      window.open('https://whatsapp.com/channel/0029VbB3YxTDJ6H15SKoBv3S', '_blank');
+    });
+
+    numIn.addEventListener('keydown', e => { if (e.key === 'Enter') subBtn.click(); });
+  </script>
+</body>
+</html>
