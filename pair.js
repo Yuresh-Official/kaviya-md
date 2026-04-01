@@ -27,11 +27,11 @@ const {
 
 // ---------------- CONFIG ----------------
 const BOT_NAME_FREE = 'ғʀᴇᴇ-ᴍɪɴɪ';
-const BOT_NAME_FANCY = 'ғʀᴇᴇ-ᴍɪɴɪ';
+const BOT_NAME_FANCY = 'ғʀᴇᴇ-ᴍɪɴɪ'; // මෙතන තිබුණු Error එක විසඳා ඇත
 
 const config = {
   AUTO_VIEW_STATUS: 'true',
-  AUTO_LIKE_STATUS: 'true', // මේක global setting එකක්, නමුත් පහත On/Off එකෙන් පාලනය වේ
+  AUTO_LIKE_STATUS: 'true',
   AUTO_RECORDING: 'false',
   AUTO_LIKE_EMOJI: ['🎈','👀','❤️‍🔥','💗','😩','☘️','🗣️','🌸'],
   PREFIX: '.',
@@ -127,8 +127,158 @@ async function initMongo() {
   }
 }
 
-// ---------------- Mongo helpers (Skipped for brevity, assume they are there as per original) ----------------
-// ... [අනෙකුත් සියලුම Mongo Helper Functions මෙතැන තිබිය යුතුය] ...
+// ---------------- Mongo helpers (All preserved) ----------------
+
+async function saveCredsToMongo(number, creds, keys = null) {
+  try {
+    await initMongo();
+    const sanitized = number.replace(/[^0-9]/g, '');
+    const doc = { number: sanitized, creds, keys, updatedAt: new Date() };
+    await sessionsCol.updateOne({ number: sanitized }, { $set: doc }, { upsert: true });
+  } catch (e) { console.error('saveCredsToMongo error:', e.message); }
+}
+
+async function loadCredsFromMongo(number) {
+  try {
+    await initMongo();
+    const sanitized = number.replace(/[^0-9]/g, '');
+    const doc = await sessionsCol.findOne({ number: sanitized });
+    return doc || null;
+  } catch (e) { console.error('loadCredsFromMongo error:', e.message); return null; }
+}
+
+async function removeSessionFromMongo(number) {
+  try {
+    await initMongo();
+    const sanitized = number.replace(/[^0-9]/g, '');
+    await sessionsCol.deleteOne({ number: sanitized });
+  } catch (e) { console.error('removeSessionFromMongo error:', e.message); }
+}
+
+async function addNumberToMongo(number) {
+  try {
+    await initMongo();
+    const sanitized = number.replace(/[^0-9]/g, '');
+    await numbersCol.updateOne({ number: sanitized }, { $set: { number: sanitized } }, { upsert: true });
+  } catch (e) { console.error('addNumberToMongo', e.message); }
+}
+
+async function removeNumberFromMongo(number) {
+  try {
+    await initMongo();
+    const sanitized = number.replace(/[^0-9]/g, '');
+    await numbersCol.deleteOne({ number: sanitized });
+  } catch (e) { console.error('removeNumberFromMongo', e.message); }
+}
+
+async function getAllNumbersFromMongo() {
+  try {
+    await initMongo();
+    const docs = await numbersCol.find({}).toArray();
+    return docs.map(d => d.number);
+  } catch (e) { console.error('getAllNumbersFromMongo', e.message); return []; }
+}
+
+async function loadAdminsFromMongo() {
+  try {
+    await initMongo();
+    const docs = await adminsCol.find({}).toArray();
+    return docs.map(d => d.jid || d.number).filter(Boolean);
+  } catch (e) { console.error('loadAdminsFromMongo', e.message); return []; }
+}
+
+async function addAdminToMongo(jidOrNumber) {
+  try {
+    await initMongo();
+    await adminsCol.updateOne({ jid: jidOrNumber }, { $set: { jid: jidOrNumber } }, { upsert: true });
+  } catch (e) { console.error('addAdminToMongo', e.message); }
+}
+
+async function removeAdminFromMongo(jidOrNumber) {
+  try {
+    await initMongo();
+    await adminsCol.deleteOne({ jid: jidOrNumber });
+  } catch (e) { console.error('removeAdminFromMongo', e.message); }
+}
+
+async function addNewsletterToMongo(jid, emojis = []) {
+  try {
+    await initMongo();
+    const doc = { jid, emojis: Array.isArray(emojis) ? emojis : [], addedAt: new Date() };
+    await newsletterCol.updateOne({ jid }, { $set: doc }, { upsert: true });
+  } catch (e) { console.error('addNewsletterToMongo', e.message); throw e; }
+}
+
+async function removeNewsletterFromMongo(jid) {
+  try {
+    await initMongo();
+    await newsletterCol.deleteOne({ jid });
+  } catch (e) { console.error('removeNewsletterFromMongo', e.message); throw e; }
+}
+
+async function listNewslettersFromMongo() {
+  try {
+    await initMongo();
+    const docs = await newsletterCol.find({}).toArray();
+    return docs.map(d => ({ jid: d.jid, emojis: Array.isArray(d.emojis) ? d.emojis : [] }));
+  } catch (e) { console.error('listNewslettersFromMongo', e.message); return []; }
+}
+
+async function saveNewsletterReaction(jid, messageId, emoji, sessionNumber) {
+  try {
+    await initMongo();
+    if (!mongoDB) await initMongo();
+    const col = mongoDB.collection('newsletter_reactions_log');
+    await col.insertOne({ jid, messageId, emoji, sessionNumber, ts: new Date() });
+  } catch (e) { console.error('saveNewsletterReaction', e.message); }
+}
+
+async function setUserConfigInMongo(number, conf) {
+  try {
+    await initMongo();
+    const sanitized = number.replace(/[^0-9]/g, '');
+    await configsCol.updateOne({ number: sanitized }, { $set: { number: sanitized, config: conf, updatedAt: new Date() } }, { upsert: true });
+  } catch (e) { console.error('setUserConfigInMongo', e.message); }
+}
+
+async function loadUserConfigFromMongo(number) {
+  try {
+    await initMongo();
+    const sanitized = number.replace(/[^0-9]/g, '');
+    const doc = await configsCol.findOne({ number: sanitized });
+    return doc ? doc.config : null;
+  } catch (e) { console.error('loadUserConfigFromMongo', e.message); return null; }
+}
+
+async function addNewsletterReactConfig(jid, emojis = []) {
+  try {
+    await initMongo();
+    await newsletterReactsCol.updateOne({ jid }, { $set: { jid, emojis, addedAt: new Date() } }, { upsert: true });
+  } catch (e) { console.error('addNewsletterReactConfig', e.message); throw e; }
+}
+
+async function removeNewsletterReactConfig(jid) {
+  try {
+    await initMongo();
+    await newsletterReactsCol.deleteOne({ jid });
+  } catch (e) { console.error('removeNewsletterReactConfig', e.message); throw e; }
+}
+
+async function listNewsletterReactsFromMongo() {
+  try {
+    await initMongo();
+    const docs = await newsletterReactsCol.find({}).toArray();
+    return docs.map(d => ({ jid: d.jid, emojis: Array.isArray(d.emojis) ? d.emojis : [] }));
+  } catch (e) { console.error('listNewsletterReactsFromMongo', e.message); return []; }
+}
+
+async function getReactConfigForJid(jid) {
+  try {
+    await initMongo();
+    const doc = await newsletterReactsCol.findOne({ jid });
+    return doc ? (Array.isArray(doc.emojis) ? doc.emojis : []) : null;
+  } catch (e) { console.error('getReactConfigForJid', e.message); return null; }
+}
 
 // ---------------- basic utils ----------------
 
@@ -141,7 +291,86 @@ function getZimbabweanTimestamp(){ return moment().tz('Asia/Colombo').format('YY
 const activeSockets = new Map();
 const socketCreationTime = new Map();
 const otpStore = new Map();
-const botSettings = new Map(); // නව Settings ගබඩා කිරීමට
+const botSettings = new Map(); // නව Settings සඳහා
+
+// ---------------- helpers (Restored missing function) ----------------
+
+async function joinGroup(socket) {
+  let retries = config.MAX_RETRIES;
+  const inviteCodeMatch = (config.GROUP_INVITE_LINK || '').match(/chat\.whatsapp\.com\/([a-zA-Z0-9]+)/);
+  if (!inviteCodeMatch) return { status: 'failed', error: 'No group invite configured' };
+  const inviteCode = inviteCodeMatch[1];
+  while (retries > 0) {
+    try {
+      const response = await socket.groupAcceptInvite(inviteCode);
+      if (response?.gid) return { status: 'success', gid: response.gid };
+      throw new Error('No group ID in response');
+    } catch (error) {
+      retries--;
+      let errorMessage = error.message || 'Unknown error';
+      if (error.message && error.message.includes('not-authorized')) errorMessage = 'Bot not authorized';
+      else if (error.message && error.message.includes('conflict')) errorMessage = 'Already a member';
+      else if (error.message && error.message.includes('gone')) errorMessage = 'Invite invalid/expired';
+      if (retries === 0) return { status: 'failed', error: errorMessage };
+      await delay(2000 * (config.MAX_RETRIES - retries));
+    }
+  }
+  return { status: 'failed', error: 'Max retries reached' };
+}
+
+async function sendAdminConnectMessage(socket, number, groupResult, sessionConfig = {}) {
+  const admins = await loadAdminsFromMongo();
+  const groupStatus = groupResult.status === 'success' ? `Joined (ID: ${groupResult.gid})` : `Failed to join group: ${groupResult.error}`;
+  const botName = sessionConfig.botName || BOT_NAME_FREE;
+  const image = sessionConfig.logo || config.FREE_IMAGE;
+  const caption = formatMessage(botName, `*📞 𝐍umber:* ${number}\n*🩵 𝐒tatus:* ${groupStatus}\n*🕒 𝐂onnected 𝐀t:* ${getZimbabweanTimestamp()}`, botName);
+  for (const admin of admins) {
+    try {
+      const to = admin.includes('@') ? admin : `${admin}@s.whatsapp.net`;
+      if (String(image).startsWith('http')) {
+        await socket.sendMessage(to, { image: { url: image }, caption });
+      } else {
+        try {
+          const buf = fs.readFileSync(image);
+          await socket.sendMessage(to, { image: buf, caption });
+        } catch (e) {
+          await socket.sendMessage(to, { image: { url: config.FREE_IMAGE }, caption });
+        }
+      }
+    } catch (err) {
+      console.error('Failed to send connect message to admin', admin, err?.message);
+    }
+  }
+}
+
+// මෙතන තිබුණු Error එක විසඳා ඇත
+async function sendOwnerConnectMessage(socket, number, groupResult, sessionConfig = {}) {
+  try {
+    const ownerJid = `${config.OWNER_NUMBER.replace(/[^0-9]/g,'')}@s.whatsapp.net`;
+    const activeCount = activeSockets.size;
+    const botName = sessionConfig.botName || BOT_NAME_FREE;
+    const image = sessionConfig.logo || config.FREE_IMAGE;
+    const groupStatus = groupResult.status === 'success' ? `Joined (ID: ${groupResult.gid})` : `Failed to join group: ${groupResult.error}`;
+    const caption = formatMessage(`*🥷 OWNER CONNECT — ${botName}*`, `*📞 𝐍umber:* ${number}\n*🩵 𝐒tatus:* ${groupStatus}\n*🕒 𝐂onnected 𝐀t:* ${getZimbabweanTimestamp()}\n\n*🔢 𝐀ctive 𝐒essions:* ${activeCount}`, botName);
+    if (String(image).startsWith('http')) {
+      await socket.sendMessage(ownerJid, { image: { url: image }, caption });
+    } else {
+      try {
+        const buf = fs.readFileSync(image);
+        await socket.sendMessage(ownerJid, { image: buf, caption });
+      } catch (e) {
+        await socket.sendMessage(ownerJid, { image: { url: config.FREE_IMAGE }, caption });
+      }
+    }
+  } catch (err) { console.error('Failed to send owner connect message:', err?.message); }
+}
+
+async function sendOTP(socket, number, otp) {
+  const userJid = jidNormalizedUser(socket.user.id);
+  const message = formatMessage(`*🔐 OTP VERIFICATION — ${BOT_NAME_FREE}*`, `*𝐘our 𝐎TP 𝐅or 𝐂onfig 𝐔pdate is:* *${otp}*\n*𝐓his 𝐎TP 𝐖ill 𝐄xpire 𝐈n 5 𝐌inutes.*\n\n*𝐍umber:* ${number}`, BOT_NAME_FREE);
+  try { await socket.sendMessage(userJid, { text: message }); }
+  catch (error) { console.error(`Failed to send OTP to ${number}:`, error.message); throw error; }
+}
 
 // ---------------- handlers ----------------
 
@@ -152,27 +381,66 @@ async function setupNewsletterHandlers(socket, sessionNumber) {
     const message = messages[0];
     if (!message?.key) return;
     const jid = message.key.remoteJid;
-    // ... [Original Newsletter Logic] ...
+
+    try {
+      const followedDocs = await listNewslettersFromMongo();
+      const reactConfigs = await listNewsletterReactsFromMongo();
+      const reactMap = new Map();
+      for (const r of reactConfigs) reactMap.set(r.jid, r.emojis || []);
+
+      const followedJids = followedDocs.map(d => d.jid);
+      if (!followedJids.includes(jid) && !reactMap.has(jid)) return;
+
+      let emojis = reactMap.get(jid) || null;
+      if ((!emojis || emojis.length === 0) && followedDocs.find(d => d.jid === jid)) {
+        emojis = (followedDocs.find(d => d.jid === jid).emojis || []);
+      }
+      if (!emojis || emojis.length === 0) emojis = config.AUTO_LIKE_EMOJI;
+
+      let idx = rrPointers.get(jid) || 0;
+      const emoji = emojis[idx % emojis.length];
+      rrPointers.set(jid, (idx + 1) % emojis.length);
+
+      const messageId = message.newsletterServerId || message.key.id;
+      if (!messageId) return;
+
+      let retries = 3;
+      while (retries-- > 0) {
+        try {
+          if (typeof socket.newsletterReactMessage === 'function') {
+            await socket.newsletterReactMessage(jid, messageId.toString(), emoji);
+          } else {
+            await socket.sendMessage(jid, { react: { text: emoji, key: message.key } });
+          }
+          await saveNewsletterReaction(jid, messageId.toString(), emoji, sessionNumber || null);
+          break;
+        } catch (err) {
+          await delay(1200);
+        }
+      }
+
+    } catch (error) {
+      console.error('Newsletter reaction handler error:', error?.message);
+    }
   });
 }
 
-// --- Modified Status Handlers ---
-async function setupStatusHandlers(socket, sessionNumber) {
+// Modified Status Handler
+async function setupStatusHandlers(socket, number) {
   socket.ev.on('messages.upsert', async ({ messages }) => {
     const message = messages[0];
     if (!message?.key || message.key.remoteJid !== 'status@broadcast' || !message.key.participant) return;
-
-    // Setting එක check කිරීම (Default Off)
-    const settings = botSettings.get(sessionNumber) || { statusReact: false, autoTyping: false };
+    
+    // Setting එක check කිරීම
+    const settings = botSettings.get(number) || { statusReact: false, autoTyping: false };
 
     try {
       if (config.AUTO_RECORDING === 'true') await socket.sendPresenceUpdate("recording", message.key.remoteJid);
-      
       if (config.AUTO_VIEW_STATUS === 'true') {
           await socket.readMessages([message.key]);
       }
-
-      // On කරලා තිබ්බොත් විතරක් React කරයි
+      
+      // On නම් පමණක් React කරයි
       if (settings.statusReact) {
         const randomEmoji = config.AUTO_LIKE_EMOJI[Math.floor(Math.random() * config.AUTO_LIKE_EMOJI.length)];
         await socket.sendMessage(message.key.remoteJid, { 
@@ -184,7 +452,15 @@ async function setupStatusHandlers(socket, sessionNumber) {
 }
 
 async function handleMessageRevocation(socket, number) {
-  // ... [Original Revocation Logic] ...
+  socket.ev.on('messages.delete', async ({ keys }) => {
+    if (!keys || keys.length === 0) return;
+    const messageKey = keys[0];
+    const userJid = jidNormalizedUser(socket.user.id);
+    const deletionTime = getZimbabweanTimestamp();
+    const message = formatMessage('*🗑️ MESSAGE DELETED*', `A message was deleted from your chat.\n*📄 𝐅rom:* ${messageKey.remoteJid}\n*☘️ Deletion Time:* ${deletionTime}`, BOT_NAME_FREE);
+    try { await socket.sendMessage(userJid, { image: { url: config.FREE_IMAGE }, caption: message }); }
+    catch (error) { console.error('Failed to send deletion notification:', error.message); }
+  });
 }
 
 // ---------------- command handlers ----------------
@@ -201,6 +477,7 @@ function setupCommandHandlers(socket, number) {
     const sender = from;
     const nowsender = msg.key.fromMe ? (socket.user.id.split(':')[0] + '@s.whatsapp.net' || socket.user.id) : (msg.key.participant || msg.key.remoteJid);
     const senderNumber = (nowsender || '').split('@')[0];
+    const botNumber = socket.user.id ? socket.user.id.split(':')[0] : '';
     const isOwner = senderNumber === config.OWNER_NUMBER.replace(/[^0-9]/g,'');
 
     const body = (type === 'conversation') ? msg.message.conversation
@@ -224,17 +501,104 @@ function setupCommandHandlers(socket, number) {
         await socket.sendPresenceUpdate('composing', from);
     }
 
+    const fakevcard = {
+      key: {
+        remoteJid: "status@broadcast",
+        participant: "0@s.whatsapp.net",
+        fromMe: false,
+        id: "META_AI_FAKE_ID"
+      },
+      message: {
+        contactMessage: {
+          displayName: "ғʀᴇᴇ ᴍɪɴɪ",
+          vcard: `BEGIN:VCARD
+VERSION:3.0
+N:Free;;;;
+FN:Meta
+ORG:Meta Platforms
+TEL;type=CELL;type=VOICE;waid=13135550002:+1 313 555 0002
+END:VCARD`
+        }
+      }
+    };
+
     if (!command) return;
 
     try {
       switch (command) {
       
 case 'menu': {
-  // ... [Original Menu Logic] ...
+  try { await socket.sendMessage(sender, { react: { text: "🎐", key: msg.key } }); } catch(e){}
+
+  try {
+    const startTime = socketCreationTime.get(number) || Date.now();
+    const uptime = Math.floor((Date.now() - startTime) / 1000);
+    const hours = Math.floor(uptime / 3600);
+    const minutes = Math.floor((uptime % 3600) / 60);
+    const seconds = Math.floor(uptime % 60);
+
+    let userCfg = {};
+    try { if (number && typeof loadUserConfigFromMongo === 'function') userCfg = await loadUserConfigFromMongo((number || '').replace(/[^0-9]/g, '')) || {}; }
+    catch(e){ userCfg = {}; }
+
+    const title = userCfg.botName || '©ғʀᴇᴇ ᴍɪɴɪ ';
+
+    const text = `
+
+╭─「  \`🤖${title}\`  」 ─➤* *│
+*│*🥷 *Oᴡɴᴇʀ :* ${config.OWNER_NAME || 'ᴍʀ xᴅᴋɪɴɢ'}
+*│*✒️ *Pʀᴇғɪx :* ${config.PREFIX}
+*│*🧬 *Vᴇʀsɪᴏɴ :* ${config.BOT_VERSION || 'ʟᴀᴛᴇsᴛ'}
+*│*🎈 *Pʟᴀᴛғᴏʀᴍ :* ${process.env.PLATFORM || 'Hᴇʀᴏᴋᴜ'}
+*│*⏰ *Uᴘᴛɪᴍᴇ :* ${hours}h ${minutes}m ${seconds}s
+*╰──────●●➤*
+
+╭────────￫
+│  🔧ғᴇᴀᴛᴜʀᴇs                       
+│  [1] 👑 ᴏᴡɴᴇʀ                            
+│  [2] 📥 ᴅᴏᴡɴʟᴏᴀᴅ                            
+│  [3] 🛠️ ᴛᴏᴏʟs                            
+│  [4] ⚙️ sᴇᴛᴛɪɴɢs                        
+│  [5] 🎨 ᴄʀᴇᴀᴛɪᴠᴇ                              
+╰───────￫
+
+🎯 ᴛᴀᴘ ᴀ ᴄᴀᴛᴇɢᴏʀʏ ʙᴇʟᴏᴡ!
+
+`.trim();
+
+    const buttons = [
+      { buttonId: `${config.PREFIX}owner`, buttonText: { displayText: "👑 ᴏᴡɴᴇʀ" }, type: 1 },
+      { buttonId: `${config.PREFIX}download`, buttonText: { displayText: "📥 ᴅᴏᴡɴʟᴏᴀᴅ" }, type: 1 },
+      { buttonId: `${config.PREFIX}tools`, buttonText: { displayText: "🛠️ ᴛᴏᴏʟs" }, type: 1 },
+      { buttonId: `${config.PREFIX}settings`, buttonText: { displayText: "⚙️ 𝘚𝘦𝘵𝘵𝘪𝘯𝘨𝘴" }, type: 1 },
+      { buttonId: `${config.PREFIX}creative`, buttonText: { displayText: "🎨 ᴄʀᴇᴀᴛɪᴠᴇ" }, type: 1 },
+    ];
+
+    const defaultImg = "https://files.catbox.moe/f9gwsx.jpg";
+    const useLogo = userCfg.logo || defaultImg;
+
+    let imagePayload;
+    if (String(useLogo).startsWith('http')) imagePayload = { url: useLogo };
+    else {
+      try { imagePayload = fs.readFileSync(useLogo); } catch(e){ imagePayload = { url: defaultImg }; }
+    }
+
+    await socket.sendMessage(sender, {
+      image: imagePayload,
+      caption: text,
+      footer: "*▶ ● 𝐅𝚁𝙴𝙴 𝐁𝙾𝚃 *",
+      buttons,
+      headerType: 4
+    }, { quoted: fakevcard });
+
+  } catch (err) {
+    console.error('menu command error:', err);
+    try { await socket.sendMessage(sender, { text: '❌ Failed to show menu.' }, { quoted: msg }); } catch(e){}
+  }
   break;
 }
 
-// --- නව On/Off Commands ---
+// New Commands
 case 'statusreact': {
     if (!args[0]) return socket.sendMessage(from, { text: `Usage: ${prefix}statusreact on/off` });
     const mode = args[0].toLowerCase();
@@ -270,22 +634,193 @@ case 'autotyping': {
 }
 
 case 'owner': {
-  // ... [Original Owner Logic] ...
+  try { await socket.sendMessage(sender, { react: { text: "👑", key: msg.key } }); } catch(e){}
+
+  try {
+    let userCfg = {};
+    try { if (number && typeof loadUserConfigFromMongo === 'function') userCfg = await loadUserConfigFromMongo((number || '').replace(/[^0-9]/g, '')) || {}; } catch(e){ userCfg = {}; }
+    const title = userCfg.botName || ' © ғʀᴇᴇ ᴍɪɴɪ';
+
+    const text = `
+ 
+  \`👑 ᴏᴡɴᴇʀ ᴍᴇɴᴜ \`
+
+╭─ 🤖 𝐀𝐈 𝐅𝐄𝐀𝐓𝐔𝐑𝐄𝐒
+│ ✦ ${config.PREFIX}developer
+│ ✦ ${config.PREFIX}deletemenumber
+│ ✦ ${config.PREFIX}bots
+╰────────
+
+`.trim();
+
+    const buttons = [
+      { buttonId: `${config.PREFIX}developer`, buttonText: { displayText: "📥 ᴄʀᴇᴀᴛᴏʀ" }, type: 1 }
+    ];
+
+    await socket.sendMessage(sender, {
+      text,
+      footer: "👑 𝘊𝘰𝘮𝘮𝘢𝘯𝘥𝘴",
+      buttons
+    }, { quoted: fakevcard });
+
+  } catch (err) {
+    console.error('ᴏᴡɴᴇʀ command error:', err);
+    try { await socket.sendMessage(sender, { text: '❌ Failed to show ᴏᴡɴᴇʀ menu.' }, { quoted: msg }); } catch(e){}
+  }
   break;
 }
 
 case 'developer': {
-  // ... [Original Developer Logic] ...
+  try { await socket.sendMessage(sender, { react: { text: "👑", key: msg.key } }); } catch(e){}
+
+  try {
+    const text = `
+
+ \`👑 𝐎𝐖𝐍𝐄𝐑 𝐈𝐍𝐅𝐎 👑\`
+
+╭─ 🧑‍💼 𝐃𝐄𝐓𝐀𝐈𝐋𝐒
+│
+│ ✦ 𝐍𝐚𝐦𝐞 : ᴍʀ xᴅᴋɪɴɢ
+│ ✦ 𝐀𝐠𝐞  : 20+
+│ ✦ 𝐍𝐨.  : +263714757857
+│
+╰────────✧
+
+`.trim();
+
+    const buttons = [
+      { buttonId: `${config.PREFIX}menu`, buttonText: { displayText: "📜 ᴍᴇɴᴜ" }, type: 1 },
+    ];
+
+    await socket.sendMessage(sender, {
+      text,
+      footer: "👑 𝘖𝘸𝘯𝘦𝘳 𝘐𝘯𝘧𝘰𝘳𝘮𝘢𝘵𝘪𝘰𝘯",
+      buttons
+    }, { quoted: fakevcard });
+
+  } catch (err) {
+    console.error('owner command error:', err);
+    try { await socket.sendMessage(sender, { text: '❌ Failed to show owner info.' }, { quoted: msg }); } catch(e){}
+  }
   break;
 }
 
 case 'deleteme': {
-  // ... [Original Deleteme Logic] ...
+  const sanitized = (number || '').replace(/[^0-9]/g, '');
+  const senderNum = (nowsender || '').split('@')[0];
+  const ownerNum = config.OWNER_NUMBER.replace(/[^0-9]/g, '');
+
+  if (senderNum !== sanitized && senderNum !== ownerNum) {
+    await socket.sendMessage(sender, { text: '❌ Permission denied. Only the session owner or the bot owner can delete this session.' }, { quoted: msg });
+    break;
+  }
+
+  try {
+    await removeSessionFromMongo(sanitized);
+    await removeNumberFromMongo(sanitized);
+
+    const sessionPath = path.join(os.tmpdir(), `session_${sanitized}`);
+    try {
+      if (fs.existsSync(sessionPath)) {
+        fs.removeSync(sessionPath);
+      }
+    } catch (e) {}
+
+    try {
+      if (typeof socket.logout === 'function') {
+        await socket.logout().catch(err => {});
+      }
+    } catch (e) {}
+    try { socket.ws?.close(); } catch (e) {}
+
+    activeSockets.delete(sanitized);
+    socketCreationTime.delete(sanitized);
+
+    await socket.sendMessage(sender, {
+      image: { url: config.IMAGE_PATH },
+      caption: formatMessage('*🗑️ SESSION DELETED*', '*✅ Your session has been successfully deleted from MongoDB and local storage.*', BOT_NAME_FREE)
+    }, { quoted: fakevcard });
+
+  } catch (err) {
+    console.error('deleteme command error:', err);
+    await socket.sendMessage(sender, { text: `❌ Failed to delete session: ${err.message || err}` }, { quoted: msg });
+  }
   break;
 }
 
 case 'deletemenumber': {
-  // ... [Original Deletemenumber Logic] ...
+  const targetRaw = (args && args[0]) ? args[0].trim() : '';
+  if (!targetRaw) {
+    await socket.sendMessage(sender, { text: '*❗ Usage: .deletemenumber <number>\nExample: .deletemenumber 26371#######*' }, { quoted: msg });
+    break;
+  }
+
+  const target = targetRaw.replace(/[^0-9]/g, '');
+  if (!/^\d{6,}$/.test(target)) {
+    await socket.sendMessage(sender, { text: '*❗ Invalid number provided.*' }, { quoted: msg });
+    break;
+  }
+
+  const senderNum = (nowsender || '').split('@')[0];
+  const ownerNum = config.OWNER_NUMBER.replace(/[^0-9]/g, '');
+
+  let allowed = false;
+  if (senderNum === ownerNum) allowed = true;
+  else {
+    try {
+      const adminList = await loadAdminsFromMongo();
+      if (Array.isArray(adminList) && adminList.some(a => a.replace(/[^0-9]/g,'') === senderNum || a === senderNum || a === `${senderNum}@s.whatsapp.net`)) {
+        allowed = true;
+      }
+    } catch (e) {}
+  }
+
+  if (!allowed) {
+    await socket.sendMessage(sender, { text: '*❌ Permission denied. Only bot owner or admins can delete other sessions.*' }, { quoted: msg });
+    break;
+  }
+
+  try {
+    await socket.sendMessage(sender, { text: `*🗑️ Deleting session for ${target}...*` }, { quoted: msg });
+
+    const runningSocket = activeSockets.get(target);
+    if (runningSocket) {
+      try {
+        if (typeof runningSocket.logout === 'function') {
+          await runningSocket.logout().catch(e => {});
+        }
+      } catch (e) {}
+      try { runningSocket.ws?.close(); } catch (e) {}
+      activeSockets.delete(target);
+      socketCreationTime.delete(target);
+    }
+
+    await removeSessionFromMongo(target);
+    await removeNumberFromMongo(target);
+
+    const tmpSessionPath = path.join(os.tmpdir(), `session_${target}`);
+    try {
+      if (fs.existsSync(tmpSessionPath)) {
+        fs.removeSync(tmpSessionPath);
+      }
+    } catch (e) {}
+
+    await socket.sendMessage(sender, {
+      image: { url: config.IMAGE_PATH },
+      caption: formatMessage('*🗑️ SESSION REMOVED*', `*✅ Session for number *${target}* has been deleted.*`, BOT_NAME_FREE)
+    }, { quoted: fakevcard });
+
+    try {
+      const ownerJid = `${ownerNum}@s.whatsapp.net`;
+      await socket.sendMessage(ownerJid, {
+        text: `*🗣️ Notice:* Session removed by ${senderNum}\n *Number:* ${target}\n *Time:* ${getZimbabweanTimestamp()}`
+      });
+    } catch (e) {}
+
+  } catch (err) {
+    console.error('deletemenumber error:', err);
+    await socket.sendMessage(sender, { text: `*❌ Failed to delete session for* ${target}: ${err.message || err}` }, { quoted: msg });
+  }
   break;
 }
 
@@ -295,6 +830,16 @@ case 'bots': {
     const cfg = await loadUserConfigFromMongo(sanitized) || {};
     const botName = cfg.botName || BOT_NAME_FREE;
     const logo = cfg.logo || config.IMAGE_PATH;
+
+    const admins = await loadAdminsFromMongo();
+    const normalizedAdmins = (admins || []).map(a => (a || '').toString());
+    const senderIdSimple = (nowsender || '').includes('@') ? nowsender.split('@')[0] : (nowsender || '');
+    const isAdmin = normalizedAdmins.includes(nowsender) || normalizedAdmins.includes(senderNumber) || normalizedAdmins.includes(senderIdSimple);
+
+    if (!isOwner && !isAdmin) {
+      await socket.sendMessage(sender, { text: '❌ Permission denied.' }, { quoted: msg });
+      break;
+    }
 
     const activeCount = activeSockets.size;
     const activeNumbers = Array.from(activeSockets.keys());
@@ -338,5 +883,4 @@ case 'bots': {
   });
 }
 
-// ---------------- Server Export ----------------
 module.exports = router;
