@@ -14,7 +14,7 @@ module.exports = {
     NEWS_JSON_URL: '',
     BOT_NAME: 'ғʀᴇᴇ-ᴍɪɴɪ',
     OWNER_NAME: 'ᴍʀ xᴅᴋɪɴɢ',
-    OWNER_NUMBER: '94714831387',
+    OWNER_NUMBER: '263714757857',
     BOT_VERSION: '1.0.2',
     BOT_FOOTER: '> ᴘᴏᴡᴇʀᴇᴅ ʙʏ ᴍᴀʟᴠɪɴ ᴛᴇᴄʜ',
     CHANNEL_LINK: 'https://whatsapp.com/channel/0029VbB3YxTDJ6H15SKoBv3S',
