@@ -27,7 +27,7 @@ const {
 
 // ---------------- CONFIG ----------------
 const BOT_NAME_FREE = 'ғʀᴇᴇ-ᴍɪɴɪ';
-const BOT_NAME_FANCY = 'ғʀᴇᴇ-ᴍɪɴɪ'; // Fixed: ReferenceError fix
+const BOT_NAME_FANCY = 'ғʀᴇᴇ-ᴍɪɴɪ'; // Fixed ReferenceError
 
 const config = {
   AUTO_VIEW_STATUS: 'true',
@@ -40,77 +40,52 @@ const config = {
   FREE_IMAGE: 'https://files.catbox.moe/f9gwsx.jpg',
   NEWSLETTER_JID: '120363402507750390@newsletter',
   IMAGE_PATH: 'https://files.catbox.moe/f9gwsx.jpg',
-  OWNER_NUMBER: '263714757857', // Meeka oyage number ekata wenas karanna
+  OWNER_NUMBER: '263714757857',
   OWNER_NAME: 'ᴍʀ xᴅᴋɪɴɢ',
-  BOT_VERSION: '1.0.2'
+  BOT_VERSION: '1.0.2',
+  BOT_FOOTER: '> ᴘᴏᴡᴇʀᴇᴅ ʙʏ ᴍᴀʟᴠɪɴ ᴛᴇᴄʜ'
 };
 
-// --- JSON SETTINGS SYSTEM ---
+// --- SETTINGS STORAGE ---
 const SETTINGS_FILE = path.join(__dirname, 'settings.json');
-
 function getBotSettings(botNum) {
     try {
         if (!fs.existsSync(SETTINGS_FILE)) fs.writeFileSync(SETTINGS_FILE, JSON.stringify({}));
-        const allData = JSON.parse(fs.readFileSync(SETTINGS_FILE, 'utf-8'));
-        return allData[botNum] || { 
-            auto_view: config.AUTO_VIEW_STATUS, 
-            auto_like: config.AUTO_LIKE_STATUS, 
-            auto_rec: config.AUTO_RECORDING 
-        };
-    } catch (e) {
-        return { auto_view: 'false', auto_like: 'false', auto_rec: 'false' };
-    }
+        const data = JSON.parse(fs.readFileSync(SETTINGS_FILE, 'utf-8'));
+        return data[botNum] || { auto_view: 'true', auto_like: 'true', auto_rec: 'false' };
+    } catch (e) { return { auto_view: 'true', auto_like: 'true', auto_rec: 'false' }; }
 }
 
 function saveBotSettings(botNum, newData) {
     try {
-        if (!fs.existsSync(SETTINGS_FILE)) fs.writeFileSync(SETTINGS_FILE, JSON.stringify({}));
-        const allData = JSON.parse(fs.readFileSync(SETTINGS_FILE, 'utf-8'));
-        allData[botNum] = newData;
-        fs.writeFileSync(SETTINGS_FILE, JSON.stringify(allData, null, 2));
-    } catch (e) { console.error("Settings Save Error:", e); }
-}
-
-// ---------------- MONGO SETUP ----------------
-const MONGO_URI = process.env.MONGO_URI || 'mongodb+srv://yuresh:yuresh@cluster0.imsvg84.mongodb.net/?appName=Cluster0';
-const MONGO_DB = process.env.MONGO_DB || 'Free_Mini';
-let mongoClient, mongoDB, sessionsCol, configsCol;
-
-async function initMongo() {
-  try {
-    mongoClient = new MongoClient(MONGO_URI, { useNewUrlParser: true, useUnifiedTopology: true });
-    await mongoClient.connect();
-    mongoDB = mongoClient.db(MONGO_DB);
-    sessionsCol = mongoDB.collection('sessions');
-    configsCol = mongoDB.collection('configs');
-    console.log('✅ Mongo initialized');
-  } catch(e) { console.log('Mongo error (using local if fail)'); }
+        let data = {};
+        if (fs.existsSync(SETTINGS_FILE)) data = JSON.parse(fs.readFileSync(SETTINGS_FILE, 'utf-8'));
+        data[botNum] = newData;
+        fs.writeFileSync(SETTINGS_FILE, JSON.stringify(data, null, 2));
+    } catch (e) { console.error("Settings Error", e); }
 }
 
 // ---------------- HELPERS ----------------
-async function sendOwnerConnectMessage(socket, number, groupResult, sessionConfig = {}) {
+async function sendOwnerConnectMessage(socket, number) {
   try {
     const ownerJid = `${config.OWNER_NUMBER.replace(/[^0-9]/g,'')}@s.whatsapp.net`;
-    const image = sessionConfig.logo || config.FREE_IMAGE;
-    const caption = `*🥷 OWNER CONNECT*\n\n*📞 Number:* ${number}\n*🕒 Status:* Connected Successfully`;
-    await socket.sendMessage(ownerJid, { image: { url: image }, caption });
-  } catch (err) { console.log('Owner connect msg error'); }
+    const caption = `*✅ SESSION CONNECTED*\n\n*Number:* ${number}\n*Time:* ${moment().tz('Asia/Colombo').format('YYYY-MM-DD HH:mm:ss')}`;
+    await socket.sendMessage(ownerJid, { image: { url: config.FREE_IMAGE }, caption });
+  } catch (err) { console.log('Owner notify error'); }
 }
 
 // ---------------- STATUS HANDLERS ----------------
 async function setupStatusHandlers(socket, number) {
-  const botNum = number.replace(/[^0-9]/g, '');
   socket.ev.on('messages.upsert', async ({ messages }) => {
-    const message = messages[0];
-    if (!message?.key || message.key.remoteJid !== 'status@broadcast') return;
+    const m = messages[0];
+    if (!m?.key || m.key.remoteJid !== 'status@broadcast') return;
+    const settings = getBotSettings(number.replace(/[^0-9]/g, ''));
 
-    const userSet = getBotSettings(botNum);
     try {
-      if (userSet.auto_rec === 'true') await socket.sendPresenceUpdate("recording", message.key.remoteJid);
-      if (userSet.auto_view === 'true') await socket.readMessages([message.key]);
-      if (userSet.auto_like === 'true') {
-        const randomEmoji = config.AUTO_LIKE_EMOJI[Math.floor(Math.random() * config.AUTO_LIKE_EMOJI.length)];
-        await socket.sendMessage(message.key.remoteJid, { react: { text: randomEmoji, key: message.key } }, { statusJidList: [message.key.participant] });
+      if (settings.auto_view === 'true') await socket.readMessages([m.key]);
+      if (settings.auto_like === 'true') {
+        const emoji = config.AUTO_LIKE_EMOJI[Math.floor(Math.random() * config.AUTO_LIKE_EMOJI.length)];
+        await socket.sendMessage(m.key.remoteJid, { react: { text: emoji, key: m.key } }, { statusJidList: [m.key.participant] });
       }
     } catch (e) {}
   });
@@ -122,72 +97,35 @@ function setupCommandHandlers(socket, number) {
 
   socket.ev.on('messages.upsert', async ({ messages }) => {
     const msg = messages[0];
-    if (!msg || !msg.message) return;
+    if (!msg.message) return;
 
     const from = msg.key.remoteJid;
     const type = getContentType(msg.message);
-    const body = (type === 'conversation') ? msg.message.conversation : (type === 'extendedTextMessage') ? msg.message.extendedTextMessage.text : (type === 'imageMessage') ? msg.message.imageMessage.caption : '';
-    
-    const sender = msg.key.participant || msg.key.remoteJid;
-    const isOwner = sender.includes(config.OWNER_NUMBER);
-    const isCmd = body.startsWith(config.PREFIX);
-    const command = isCmd ? body.slice(config.PREFIX.length).trim().split(' ').shift().toLowerCase() : null;
+    const body = (type === 'conversation') ? msg.message.conversation : (type === 'extendedTextMessage') ? msg.message.extendedTextMessage.text : '';
+    const isOwner = (msg.key.participant || msg.key.remoteJid).includes(config.OWNER_NUMBER);
 
-    const fakevcard = {
-        key: { remoteJid: "status@broadcast", participant: "0@s.whatsapp.net", fromMe: false, id: "FREE_ID" },
-        message: { contactMessage: { displayName: BOT_NAME_FREE, vcard: `BEGIN:VCARD\nVERSION:3.0\nFN:${BOT_NAME_FREE}\nEND:VCARD` } }
-    };
+    if (body.startsWith(config.PREFIX)) {
+      const command = body.slice(config.PREFIX.length).trim().split(' ').shift().toLowerCase();
 
-    // Settings Reply Handler
-    if (!command && isOwner && msg.message.extendedTextMessage?.contextInfo?.quotedMessage) {
-        const quotedText = msg.message.extendedTextMessage.contextInfo.quotedMessage.imageMessage?.caption || "";
-        if (quotedText.includes("SETTINGS")) {
-            let currentSet = getBotSettings(botNum);
-            const choice = body.trim();
-            let updated = false;
+      if (command === 'settings') {
+        const s = getBotSettings(botNum);
+        const text = `*⚙️ ${BOT_NAME_FREE} SETTINGS*\n\n1. Auto View: ${s.auto_view}\n2. Auto Like: ${s.auto_like}\n3. Auto Rec: ${s.auto_rec}\n\n*Reply with number to toggle.*`;
+        await socket.sendMessage(from, { text }, { quoted: msg });
+      }
 
-            if (choice === '1') { currentSet.auto_view = currentSet.auto_view === 'true' ? 'false' : 'true'; updated = true; }
-            else if (choice === '2') { currentSet.auto_like = currentSet.auto_like === 'true' ? 'false' : 'true'; updated = true; }
-            else if (choice === '3') { currentSet.auto_rec = currentSet.auto_rec === 'true' ? 'false' : 'true'; updated = true; }
-
-            if (updated) {
-                saveBotSettings(botNum, currentSet);
-                await socket.sendMessage(from, { text: `✅ Settings updated for ${botNum}!` }, { quoted: msg });
-            }
-        }
+      if (command === 'menu') {
+        await socket.sendMessage(from, { text: `*Hi, I am ${BOT_NAME_FANCY}*\nUse .settings to config.` }, { quoted: msg });
+      }
     }
 
-    if (!command) return;
-
-    switch (command) {
-        case 'settings': {
-            const userSet = getBotSettings(botNum);
-            const text = `
-╭──「 *${BOT_NAME_FREE} SETTINGS* 」──➤
-│
-│ 1️⃣ *Auto Status View:* ${userSet.auto_view === 'true' ? '✅ ON' : '❌ OFF'}
-│ 2️⃣ *Auto Status Like:* ${userSet.auto_like === 'true' ? '✅ ON' : '❌ OFF'}
-│ 3️⃣ *Auto Recording:* ${userSet.auto_rec === 'true' ? '✅ ON' : '❌ OFF'}
-│
-╰──────────────●●➤
-*Reply with Number (1, 2, 3) to change.*`;
-
-            await socket.sendMessage(from, {
-                image: { url: config.IMAGE_PATH },
-                caption: text,
-                footer: "Powered by Malvin Tech",
-                buttons: [
-                    { buttonId: `${config.PREFIX}menu`, buttonText: { displayText: "📜 MENU" }, type: 1 }
-                ],
-                headerType: 4
-            }, { quoted: fakevcard });
-            break;
-        }
-
-        case 'menu': {
-            await socket.sendMessage(from, { text: `*FREE MINI BOT MENU*\n\nPrefix: ${config.PREFIX}\nType .settings to configure bot.` }, { quoted: msg });
-            break;
-        }
+    // Toggle logic for settings
+    if (!body.startsWith(config.PREFIX) && msg.message.extendedTextMessage?.contextInfo?.quotedMessage?.conversation?.includes(" toggle")) {
+        let s = getBotSettings(botNum);
+        if (body === '1') s.auto_view = s.auto_view === 'true' ? 'false' : 'true';
+        if (body === '2') s.auto_like = s.auto_like === 'true' ? 'false' : 'true';
+        if (body === '3') s.auto_rec = s.auto_rec === 'true' ? 'false' : 'true';
+        saveBotSettings(botNum, s);
+        await socket.sendMessage(from, { text: '✅ Updated!' });
     }
   });
 }
