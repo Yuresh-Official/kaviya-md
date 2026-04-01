@@ -1,17 +1,14 @@
 const { exec } = require('child_process');
 
 /**
- * Bot එක Update කිරීමට භාවිතා කරන ප්‍රධාන Function එක
+ * ඕනෑම කෙනෙකුට පාවිච්චි කළ හැකි විදිහට සකස් කළ Update Function එක
  */
-async function handleUpdate(socket, from, isOwner) {
-    // 1. මේක හදලා තියෙන්නේ ආරක්ෂාවට - Owner ට විතරයි Update කරන්න පුළුවන්
-    if (!isOwner) {
-        return socket.sendMessage(from, { text: '❌ මෙම Command එක භාවිතා කළ හැක්කේ Bot හි හිමිකරුට (Owner) පමණි.' });
-    }
+async function handleUpdate(socket, from) {
+    // Owner check එක මෙතනින් අයින් කළා. දැන් ඕනෑම කෙනෙකුට පුළුවන්.
+    
+    await socket.sendMessage(from, { text: '🚀 *අලුත්ම Updates පරීක්ෂා කරමින් පවතී...*' });
 
-    await socket.sendMessage(from, { text: '🚀 *Checking for updates from GitHub...*' });
-
-    // 2. Git Pull command එක මගින් අලුත් Code එක ගන්නවා
+    // Git Pull command එක මගින් අලුත් Code එක GitHub එකෙන් ලබා ගැනීම
     exec('git pull', async (err, stdout, stderr) => {
         if (err) {
             return socket.sendMessage(from, { 
@@ -19,16 +16,16 @@ async function handleUpdate(socket, from, isOwner) {
             });
         }
 
-        // 3. දැනටමත් Update ද කියලා බලනවා
+        // දැනටමත් Update වී ඇත්දැයි බැලීම
         if (stdout.includes('Already up to date')) {
-            return socket.sendMessage(from, { text: '✅ *Bot එක දැනටමත් අලුත්ම Version එකේ තියෙන්නේ.*' });
+            return socket.sendMessage(from, { text: '✅ *Bot එක දැනටමත් අලුත්ම Version එකේ පවතී.*' });
         } else {
-            // 4. සාර්ථකව Update වුණොත් පණිවිඩයක් යවා Restart කරනවා
+            // සාර්ථකව Update වුවහොත් පණිවිඩයක් යවා Bot එක Restart කිරීම
             await socket.sendMessage(from, { 
-                text: '🔄 *Updates සාර්ථකව Install වුණා! Bot එක දැන් Restart වෙනවා...*\n\n' + '```' + stdout + '```' 
+                text: '🔄 *Updates සාර්ථකව ලැබුණා! Bot එක දැන් Restart වෙනවා...*\n\n' + '```' + stdout + '```' 
             });
 
-            // තත්පර 2කින් Bot එක පීච්චි කරලා අලුත් Code එකෙන් පණ ගන්වනවා (Process Exit)
+            // තත්පර 2කින් Bot එක නවතා අලුත් Code එකෙන් පණ ගැන්වීම
             setTimeout(() => {
                 process.exit();
             }, 2000);
