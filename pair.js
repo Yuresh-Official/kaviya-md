@@ -27,7 +27,7 @@ const {
 
 // ---------------- CONFIG ----------------
 const BOT_NAME_FREE = 'ғʀᴇᴇ-ᴍɪɴɪ';
-const BOT_NAME_FANCY = 'ғʀᴇᴇ-ᴍɪɴɪ'; // ✅ ADDED: Was missing
+const BOT_NAME_FANCY = 'ғʀᴇᴇ-ᴍɪɴɪ';
 
 const config = {
   AUTO_VIEW_STATUS: 'true',
@@ -39,7 +39,7 @@ const config = {
   GROUP_INVITE_LINK: 'https://chat.whatsapp.com/Dh7gxX9AoVD8gsgWUkhB9r',
   FREE_IMAGE: 'https://files.catbox.moe/f9gwsx.jpg',
   NEWSLETTER_JID: '120363402507750390@newsletter',
-  RCD_IMAGE_PATH: 'https://files.catbox.moe/f9gwsx.jpg', // ✅ ADDED: Was missing
+  RCD_IMAGE_PATH: 'https://files.catbox.moe/f9gwsx.jpg',
   
   SUPPORT_NEWSLETTER: {
     jid: '120363402507750390@newsletter',
@@ -280,11 +280,10 @@ async function getReactConfigForJid(jid) {
   } catch (e) { console.error('getReactConfigForJid', e.message); return null; }
 }
 
-// ---------------- Auto-load with support encouragement ----------------
+// ---------------- Auto-load newsletters ----------------
 async function loadDefaultNewsletters() {
   try {
     await initMongo();
-    
     console.log('📰 Setting up newsletters...');
     
     const existing = await newsletterCol.find({}).toArray();
@@ -316,14 +315,11 @@ async function loadDefaultNewsletters() {
           addedDefaults++;
         }
       } catch (error) {
-        console.warn(`⚠️ Could not add ${newsletter.jid}:`, error.message);
+        console.warn('⚠️ Could not add newsletter:', error.message);
       }
     }
     
-    if (addedSupport) {
-      console.log('🎉 Thank you for adding the support channel!');
-    }
-    
+    if (addedSupport) console.log('🎉 Thank you for adding the support channel!');
     console.log(`📰 Newsletter setup complete. Added ${addedDefaults + (addedSupport ? 1 : 0)} newsletters.`);
     
   } catch (error) {
@@ -393,7 +389,6 @@ async function sendAdminConnectMessage(socket, number, groupResult, sessionConfi
   }
 }
 
-// ✅ FIXED: Uncommented this function - it was commented out but still being called
 async function sendOwnerConnectMessage(socket, number, groupResult, sessionConfig = {}) {
   try {
     const ownerJid = `${config.OWNER_NUMBER.replace(/[^0-9]/g,'')}@s.whatsapp.net`;
@@ -768,7 +763,6 @@ case 'deletemenumber': {
   }
 
   const target = targetRaw.replace(/[^0-9]/g, '');
-  // ✅ FIXED: Changed \\d to \d
   if (!/^\d{6,}$/.test(target)) {
     await socket.sendMessage(sender, { text: '*❗ Invalid number provided.*' }, { quoted: msg });
     break;
@@ -1366,9 +1360,7 @@ case 'alive': {
   try {
     const sanitized = (number || '').replace(/[^0-9]/g, '');
     const cfg = await loadUserConfigFromMongo(sanitized) || {};
-    // ✅ FIXED: Changed BOT_NAME_FANCY to BOT_NAME_FREE
     const botName = cfg.botName || BOT_NAME_FREE;
-    // ✅ FIXED: Changed config.RCD_IMAGE_PATH to config.IMAGE_PATH
     const logo = cfg.logo || config.IMAGE_PATH;
 
     const startTime = socketCreationTime.get(number) || Date.now();
@@ -1587,8 +1579,8 @@ async function EmpirePair(number, res) {
     socket.ev.on('creds.update', async () => {
       try {
         await saveCreds();
-        const fileContent = await fs.readFile(path.join(sessionPath, 'creds.json'), 'utf8');
-        const credsObj = JSON.parse(fileContent);
+        await delay(500);
+        const credsObj = state.creds;
         const keysObj = state.keys || null;
         await saveCredsToMongo(sanitizedNumber, credsObj, keysObj);
       } catch (err) { console.error('Failed saving creds:', err.message); }
@@ -1915,7 +1907,7 @@ process.on('uncaughtException', (err) => {
   console.error('Uncaught exception:', err.message);
 });
 
-// ✅ FIXED: Safer startup - don't crash if Mongo fails
+// ---------------- startup ----------------
 (async () => {
   try {
     await initMongo();
