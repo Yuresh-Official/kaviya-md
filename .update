@@ -1,0 +1,42 @@
+const { exec } = require('child_process');
+
+/**
+ * Bot එක Update කිරීමට භාවිතා කරන Function එක
+ * @param {Object} socket - Baileys socket instance
+ * @param {String} from - Message එක ආපු JID එක
+ * @param {Boolean} isOwner - පණිවිඩය එවූ පුද්ගලයා Owner ද යන්න
+ */
+async function handleUpdate(socket, from, isOwner) {
+    // 1. Owner ද කියලා Check කරනවා (ආරක්ෂාව සඳහා)
+    if (!isOwner) {
+        return socket.sendMessage(from, { text: '❌ මෙම Command එක භාවිතා කළ හැක්කේ Bot හි හිමිකරුට (Owner) පමණි.' });
+    }
+
+    await socket.sendMessage(from, { text: '🚀 *Checking for updates...*' });
+
+    // 2. Git Pull command එක Run කරනවා
+    exec('git pull', async (err, stdout, stderr) => {
+        if (err) {
+            return socket.sendMessage(from, { 
+                text: `❌ *Update Error:* \n\n\`\`\`${err.message}\`\`\`` 
+            });
+        }
+
+        // 3. දැනටමත් Update ද කියලා බලනවා
+        if (stdout.includes('Already up to date')) {
+            return socket.sendMessage(from, { text: '✅ *Bot එක දැනටමත් අලුත්ම Version එකේ තියෙන්නේ.*' });
+        } else {
+            // 4. සාර්ථකව Update වුණොත් පණිවිඩයක් යවා Restart කරනවා
+            await socket.sendMessage(from, { 
+                text: '🔄 *Updates සාර්ථකව Install වුණා! Bot එක දැන් Restart වෙනවා...*\n\n' + '```' + stdout + '```' 
+            });
+
+            // තත්පර 2කින් Bot එක Exit කරනවා (PM2 මගින් ඔටෝ Restart වෙයි)
+            setTimeout(() => {
+                process.exit();
+            }, 2000);
+        }
+    });
+}
+
+module.exports = { handleUpdate };
